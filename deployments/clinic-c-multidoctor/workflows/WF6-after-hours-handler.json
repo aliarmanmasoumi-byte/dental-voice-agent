@@ -1,0 +1,140 @@
+{
+  "name": "WF6 - After-Hours Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-after-hours",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-800, 300],
+      "id": "wf6-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-after-hours"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf6-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-580, 300],
+      "id": "wf6-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-580, 500],
+      "id": "wf6-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst phone = String(body.patient_phone || '');\nconst phoneLast4 = phone.length >= 4 ? '***' + phone.slice(-4) : '****';\n\nreturn [{\n  json: {\n    patient_name: body.patient_name || 'Unknown',\n    phone_last4: phoneLast4,\n    full_phone: phone,\n    reason: body.reason || 'No reason provided',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-360, 300],
+      "id": "wf6-04-prepare",
+      "name": "Prepare Data"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1erOCc-zeDBkT3yQGwgnzIUJjsLUH_vkVNV65oDUDMbY", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Callback Requests", "mode": "list", "cachedResultName": "Callback Requests" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Patient Name": "={{ $json.patient_name }}",
+            "Phone Last 4": "={{ $json.phone_last4 }}",
+            "Reason": "={{ $json.reason }}",
+            "Status": "pending",
+            "Handled At": ""
+          }
+        },
+        "options": { "valueInputMode": "USER_ENTERED" }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-140, 300],
+      "id": "wf6-05-log",
+      "name": "Log Callback Request",
+      "credentials": {
+        "googleSheetsServiceAccountApi": {
+          "id": "RECONNECT_SHEETS",
+          "name": "Google Sheets - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "<OWNER_EMAIL>",
+        "subject": "[Masoumi Clinic] After-Hours Callback Request",
+        "emailType": "text",
+        "message": "=New callback request received after hours.\n\nPatient: {{ $('Prepare Data').item.json.patient_name }}\nPhone: {{ $('Prepare Data').item.json.full_phone }}\nReason: {{ $('Prepare Data').item.json.reason }}\nTime: {{ $('Prepare Data').item.json.timestamp }}\n\nPlease follow up during working hours (Mon-Thu 10:00-20:00, Fri 10:00-15:00)."
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [80, 300],
+      "id": "wf6-06-email",
+      "name": "Notify Admin",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RECONNECT_GMAIL",
+          "name": "Gmail - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"success\",\"message\":\"Callback request registered. The clinic will contact you during working hours: Monday to Thursday 10:00-20:00, Friday 10:00-15:00.\",\"message_es\":\"Solicitud de devolucion de llamada registrada. La clinica se pondra en contacto durante el horario de apertura: lunes a jueves 10:00-20:00, viernes 10:00-15:00.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [300, 300],
+      "id": "wf6-07-respond",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Prepare Data", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Data": { "main": [[{ "node": "Log Callback Request", "type": "main", "index": 0 }]] },
+    "Log Callback Request": { "main": [[{ "node": "Notify Admin", "type": "main", "index": 0 }]] },
+    "Notify Admin": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

@@ -1,0 +1,178 @@
+{
+  "name": "WF5 - Confirmation Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-send-confirmation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-800, 300],
+      "id": "wf5-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-send-confirmation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf5-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-580, 300],
+      "id": "wf5-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-580, 500],
+      "id": "wf5-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst type = body.type || 'booking';\nconst lang = (body.language || 'es').toLowerCase();\nconst name = body.patient_name || 'Paciente';\nconst doctor = body.doctor_name || '';\nconst specialty = body.specialty || '';\nconst date = body.date || '';\nconst time = body.time || '';\nconst apptId = body.appointment_id || '';\nconst phone = String(body.patient_phone || '');\nconst clinicPhone = '+34 91 345 17 57';\nconst clinicAddress = 'Calle Doctor Esquerdo 16, Madrid';\n\nlet message = '';\n\nif (lang === 'es') {\n  if (type === 'booking') {\n    message = `✅ Cita confirmada\\nPaciente: ${name}\\nDoctor: ${doctor}\\nEspecialidad: ${specialty}\\n📅 ${date} a las ${time}\\n🆔 ${apptId}\\n📍 ${clinicAddress}\\nPara cancelar llame al ${clinicPhone}`;\n  } else if (type === 'cancel') {\n    message = `❌ Cita cancelada\\nPaciente: ${name}\\nDoctor: ${doctor}\\n📅 ${date} a las ${time}\\nSu cita ha sido cancelada correctamente.\\nClínica Masoumi | ${clinicPhone}`;\n  } else if (type === 'reschedule') {\n    message = `🔄 Cita reprogramada\\nPaciente: ${name}\\nDoctor: ${doctor}\\n📅 Nueva fecha: ${date} a las ${time}\\n🆔 ${apptId}\\nClínica Masoumi | ${clinicPhone}`;\n  }\n} else {\n  if (type === 'booking') {\n    message = `✅ Appointment Confirmed\\nPatient: ${name}\\nDoctor: ${doctor}\\nSpecialty: ${specialty}\\n📅 ${date} at ${time}\\n🆔 ${apptId}\\n📍 ${clinicAddress}\\nTo cancel call ${clinicPhone}`;\n  } else if (type === 'cancel') {\n    message = `❌ Appointment Cancelled\\nPatient: ${name}\\nDoctor: ${doctor}\\n📅 ${date} at ${time}\\nYour appointment has been successfully cancelled.\\nMasoumi Clinic | ${clinicPhone}`;\n  } else if (type === 'reschedule') {\n    message = `🔄 Appointment Rescheduled\\nPatient: ${name}\\nDoctor: ${doctor}\\n📅 New date: ${date} at ${time}\\n🆔 ${apptId}\\nMasoumi Clinic | ${clinicPhone}`;\n  }\n}\n\nreturn [{ json: { sms_message: message, to_phone: phone, patient_name: name, type } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-360, 300],
+      "id": "wf5-04-build-message",
+      "name": "Build SMS Message"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "from": "<CLINIC_PHONE_US>",
+        "to": "={{ $json.to_phone }}",
+        "message": "={{ $json.sms_message }}"
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [-140, 300],
+      "id": "wf5-05-twilio",
+      "name": "Send SMS via Twilio",
+      "credentials": {
+        "twilioApi": {
+          "id": "RECONNECT_TWILIO",
+          "name": "Twilio - Masoumi"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf5-sms-fail-cond",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [80, 300],
+      "id": "wf5-06-sms-check",
+      "name": "SMS Failed?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.ambitnhouse.com/webhook/masoumi-error-handler",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-webhook-token", "value": "msc_live_K9pXmQvT3nR7sLbZ" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "workflow", "value": "WF5 - Confirmation Sender" },
+            { "name": "error_type", "value": "Twilio SMS Error" },
+            { "name": "error_message", "value": "={{ $('Send SMS via Twilio').item.json.error || 'SMS send failed' }}" },
+            { "name": "input_summary", "value": "={{ 'type=' + $('Build SMS Message').item.json.type + ' phone=***' + String($('Build SMS Message').item.json.to_phone).slice(-4) }}" },
+            { "name": "severity", "value": "warning" },
+            { "name": "user_message", "value": "Your confirmation could not be sent via SMS. Please save your appointment ID for reference." }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 200],
+      "id": "wf5-07-log-error",
+      "name": "Log SMS Failure"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"success\",\"message\":\"Confirmation sent successfully\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [300, 400],
+      "id": "wf5-08-respond-ok",
+      "name": "Respond OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"partial\",\"message\":\"Appointment processed but SMS confirmation failed. Error logged.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [500, 200],
+      "id": "wf5-09-respond-fail",
+      "name": "Respond (SMS failed)"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Build SMS Message", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build SMS Message": { "main": [[{ "node": "Send SMS via Twilio", "type": "main", "index": 0 }]] },
+    "Send SMS via Twilio": { "main": [[{ "node": "SMS Failed?", "type": "main", "index": 0 }]] },
+    "SMS Failed?": {
+      "main": [
+        [{ "node": "Log SMS Failure", "type": "main", "index": 0 }],
+        [{ "node": "Respond OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log SMS Failure": { "main": [[{ "node": "Respond (SMS failed)", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

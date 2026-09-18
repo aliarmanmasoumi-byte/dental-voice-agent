@@ -1,0 +1,165 @@
+{
+  "name": "WF1 - Check Availability",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-check-availability",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-800, 300],
+      "id": "wf1-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-check-availability"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf1-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-580, 300],
+      "id": "wf1-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-580, 500],
+      "id": "wf1-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const DOCTORS = {\n  'dr-masoud': { name: 'Dr. Masoud', specialty: 'General Dentistry', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-paria':  { name: 'Dr. Paria',  specialty: 'Orthodontics',      calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-parvin': { name: 'Dr. Parvin', specialty: 'Endodontics',        calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-ali':    { name: 'Dr. Ali',    specialty: 'Implants',           calendarId: '<GOOGLE_CALENDAR_ID>' }\n};\n\nconst SPECIALTY_MAP = {\n  'general dentistry': 'dr-masoud',\n  'general': 'dr-masoud',\n  'orthodontics': 'dr-paria',\n  'ortodoncia': 'dr-paria',\n  'endodontics': 'dr-parvin',\n  'endodoncia': 'dr-parvin',\n  'implants': 'dr-ali',\n  'implantes': 'dr-ali'\n};\n\nconst body = $input.first().json.body;\nconst rawDoctorId = (body.doctor_id || '').toLowerCase().trim();\nconst rawSpecialty = (body.specialty || '').toLowerCase().trim();\nlet datePreference = body.date_preference || new Date().toISOString();\n\nconst doctorId = rawDoctorId ? rawDoctorId : SPECIALTY_MAP[rawSpecialty];\nconst doctor = doctorId ? DOCTORS[doctorId] : null;\n\nif (!doctor) {\n  return [{ json: { error: 'DOCTOR_NOT_FOUND', doctor_id: doctorId, specialty: rawSpecialty } }];\n}\n\nif (!datePreference.includes('+') && !datePreference.includes('Z')) {\n  datePreference += '+02:00';\n}\n\nconst targetDate = new Date(datePreference);\nconst searchStart = new Date(targetDate);\nsearchStart.setUTCHours(0, 0, 0, 0);\nconst searchEnd = new Date(searchStart.getTime() + 14 * 24 * 60 * 60 * 1000);\n\nreturn [{ json: {\n  doctor_id: doctorId,\n  doctor_name: doctor.name,\n  specialty: doctor.specialty,\n  calendar_id: doctor.calendarId,\n  date_preference: datePreference,\n  search_start: searchStart.toISOString(),\n  search_end: searchEnd.toISOString()\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-360, 300],
+      "id": "wf1-04-resolve-doctor",
+      "name": "Resolve Doctor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf1-error-cond",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-140, 300],
+      "id": "wf1-05-check-doctor",
+      "name": "Doctor Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":\"DOCTOR_NOT_FOUND\",\"detail\":\"No doctor found for the given specialty or doctor_id.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-140, 500],
+      "id": "wf1-06-no-doctor",
+      "name": "Respond No Doctor"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.search_start }}",
+        "timeMax": "={{ $json.search_end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [80, 200],
+      "id": "wf1-07-get-events",
+      "name": "Get Calendar Events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const resolveNode = $('Resolve Doctor').first().json;\nconst SLOT_MS = 45 * 60 * 1000;\nconst SLOTS_NEEDED = 3;\nconst WORK_START = 10;\nconst WORK_END_DEFAULT = 20;\nconst WORK_END_FRIDAY = 15;\n\nfunction toMadridLocal(d) {\n  return new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));\n}\n\nconst busyEvents = $input.all().map(item => ({\n  start: new Date(item.json.start?.dateTime || item.json.start?.date),\n  end: new Date(item.json.end?.dateTime || item.json.end?.date)\n}));\n\nlet refDateStr = resolveNode.date_preference;\nif (!refDateStr.includes('+') && !refDateStr.includes('Z')) refDateStr += '+02:00';\nconst refDate = new Date(refDateStr);\nconst nowMadrid = toMadridLocal(new Date());\n\nlet cursor = toMadridLocal(refDate);\ncursor.setHours(WORK_START, 0, 0, 0);\n\nconst slots = [];\nfor (let day = 0; day < 14 && slots.length < SLOTS_NEEDED; day++) {\n  const dow = cursor.getDay();\n  if (dow !== 0 && dow !== 6) {\n    const endHour = dow === 5 ? WORK_END_FRIDAY : WORK_END_DEFAULT;\n    let slot = new Date(cursor);\n    while (slot.getHours() < endHour) {\n      const slotEnd = new Date(slot.getTime() + SLOT_MS);\n      const isFuture = slot > nowMadrid;\n      const isFree = !busyEvents.some(e => slot < e.end && slotEnd > e.start);\n      if (isFuture && isFree) {\n        const pad = n => String(n).padStart(2, '0');\n        const offsetStr = slot.getMonth() >= 2 && slot.getMonth() <= 9 ? '+02:00' : '+01:00';\n        slots.push({\n          datetime: `${slot.getFullYear()}-${pad(slot.getMonth()+1)}-${pad(slot.getDate())}T${pad(slot.getHours())}:${pad(slot.getMinutes())}:00${offsetStr}`,\n          date: `${slot.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][slot.getMonth()]} ${slot.getFullYear()}`,\n          time: `${pad(slot.getHours())}:${pad(slot.getMinutes())}`,\n          doctor: resolveNode.doctor_name,\n          doctor_id: resolveNode.doctor_id\n        });\n        if (slots.length >= SLOTS_NEEDED) break;\n      }\n      slot = new Date(slot.getTime() + SLOT_MS);\n    }\n  }\n  cursor.setDate(cursor.getDate() + 1);\n  cursor.setHours(WORK_START, 0, 0, 0);\n}\n\nreturn [{ json: {\n  status: 'success',\n  doctor: resolveNode.doctor_name,\n  doctor_id: resolveNode.doctor_id,\n  specialty: resolveNode.specialty,\n  available_slots: slots,\n  slots_found: slots.length\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 200],
+      "id": "wf1-08-compute-slots",
+      "name": "Compute Free Slots"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [500, 200],
+      "id": "wf1-09-respond",
+      "name": "Respond with Slots"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Resolve Doctor", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resolve Doctor": { "main": [[{ "node": "Doctor Found?", "type": "main", "index": 0 }]] },
+    "Doctor Found?": {
+      "main": [
+        [{ "node": "Respond No Doctor", "type": "main", "index": 0 }],
+        [{ "node": "Get Calendar Events", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Calendar Events": { "main": [[{ "node": "Compute Free Slots", "type": "main", "index": 0 }]] },
+    "Compute Free Slots": { "main": [[{ "node": "Respond with Slots", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

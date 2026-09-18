@@ -1,0 +1,103 @@
+[
+ {
+  "tag": "A prompt_v15_backup.txt",
+  "suite": "cases.mjs",
+  "pass": 69,
+  "total": 75,
+  "err": 1,
+  "msgs": 492,
+  "glued": 0,
+  "fails": [
+   "A06",
+   "B07",
+   "F02",
+   "F06",
+   "H06",
+   "L02"
+  ]
+ },
+ {
+  "tag": "A prompt_v15_backup.txt",
+  "suite": "cases2.mjs",
+  "pass": 64,
+  "total": 75,
+  "err": 6,
+  "msgs": 466,
+  "glued": 0,
+  "fails": [
+   "N05",
+   "N07",
+   "O07",
+   "O09",
+   "P04",
+   "Q02",
+   "Q05",
+   "R02",
+   "R07",
+   "S08",
+   "U08"
+  ]
+ },
+ {
+  "tag": "B prompt_clean.txt",
+  "suite": "cases.mjs",
+  "pass": 54,
+  "total": 75,
+  "err": 3,
+  "msgs": 505,
+  "glued": 0,
+  "fails": [
+   "A02",
+   "A05",
+   "A06",
+   "B07",
+   "C01",
+   "C03",
+   "D01",
+   "E03",
+   "E04",
+   "E05",
+   "F02",
+   "F03",
+   "H03",
+   "I02",
+   "I03",
+   "J02",
+   "J03",
+   "K01",
+   "K05",
+   "L01",
+   "L03"
+  ]
+ },
+ {
+  "tag": "B prompt_clean.txt",
+  "suite": "cases2.mjs",
+  "pass": 56,
+  "total": 75,
+  "err": 6,
+  "msgs": 517,
+  "glued": 0,
+  "fails": [
+   "N07",
+   "O03",
+   "O07",
+   "O08",
+   "O09",
+   "P04",
+   "P07",
+   "P08",
+   "P09",
+   "Q01",
+   "Q04",
+   "R02",
+   "R07",
+   "S04",
+   "S05",
+   "T04",
+   "U02",
+   "U06",
+   "U09"
+  ]
+ }
+]

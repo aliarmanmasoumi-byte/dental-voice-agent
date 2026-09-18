@@ -1,0 +1,278 @@
+{
+  "name": "WF2 - Book Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-book-appointment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1000, 300],
+      "id": "wf2-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-book-appointment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf2-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-780, 300],
+      "id": "wf2-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-780, 500],
+      "id": "wf2-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const DOCTORS = {\n  'dr-masoud': { name: 'Dr. Masoud', specialty: 'General Dentistry', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-paria':  { name: 'Dr. Paria',  specialty: 'Orthodontics',      calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-parvin': { name: 'Dr. Parvin', specialty: 'Endodontics',        calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-ali':    { name: 'Dr. Ali',    specialty: 'Implants',           calendarId: '<GOOGLE_CALENDAR_ID>' }\n};\n\nconst body = $input.first().json.body;\nconst doctorId = (body.doctor_id || '').toLowerCase().trim();\nconst doctor = DOCTORS[doctorId];\n\nif (!doctor) {\n  return [{ json: { error: 'DOCTOR_NOT_FOUND' } }];\n}\n\nif (!body.patient_name || !body.patient_phone || !body.datetime) {\n  return [{ json: { error: 'MISSING_REQUIRED_FIELDS' } }];\n}\n\nlet dtStr = body.datetime;\nif (!dtStr.includes('+') && !dtStr.includes('Z')) dtStr += '+02:00';\n\nconst startDate = new Date(dtStr);\nif (isNaN(startDate.getTime())) {\n  return [{ json: { error: 'INVALID_DATETIME' } }];\n}\n\nconst endDate = new Date(startDate.getTime() + 45 * 60 * 1000);\n\n// Generate appointment ID: CLN-YYYYMMDD-XXXX\nconst d = startDate;\nconst pad = n => String(n).padStart(2, '0');\nconst dateStr = `${d.getUTCFullYear()}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}`;\nconst rand = Math.random().toString(36).substring(2, 6).toUpperCase();\nconst appointmentId = `CLN-${dateStr}-${rand}`;\n\nconst phone = String(body.patient_phone);\nconst phoneLast4 = phone.length >= 4 ? phone.slice(-4) : phone;\n\nreturn [{ json: {\n  appointment_id: appointmentId,\n  patient_name: body.patient_name,\n  patient_phone: phone,\n  phone_last4: phoneLast4,\n  doctor_id: doctorId,\n  doctor_name: doctor.name,\n  specialty: doctor.specialty,\n  calendar_id: doctor.calendarId,\n  datetime_start: dtStr,\n  datetime_end: endDate.toISOString(),\n  notes: body.notes || '',\n  event_summary: `[${appointmentId}] ${body.patient_name}`,\n  event_description: `APPOINTMENT_ID: ${appointmentId}\\nSPECIALTY: ${doctor.specialty}\\nPHONE_LAST4: ${phoneLast4}\\nNOTES: ${body.notes || 'none'}`\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 300],
+      "id": "wf2-04-prepare",
+      "name": "Prepare & Validate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf2-err-cond",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-340, 300],
+      "id": "wf2-05-check-valid",
+      "name": "Valid Input?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":{{ JSON.stringify($json.error) }}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-340, 500],
+      "id": "wf2-06-respond-invalid",
+      "name": "Respond Invalid"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.datetime_start }}",
+        "timeMax": "={{ $json.datetime_end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [-120, 200],
+      "id": "wf2-07-double-check",
+      "name": "Double-Check Slot",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf2-slot-cond",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [100, 200],
+      "id": "wf2-08-slot-free",
+      "name": "Slot Still Free?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"SLOT_TAKEN\",\"detail\":\"This time slot was just booked by another patient. Please choose a different time.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [100, 400],
+      "id": "wf2-09-slot-taken",
+      "name": "Respond Slot Taken"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Prepare & Validate').item.json.calendar_id }}",
+          "mode": "id"
+        },
+        "start": "={{ $('Prepare & Validate').item.json.datetime_start }}",
+        "end": "={{ $('Prepare & Validate').item.json.datetime_end }}",
+        "additionalFields": {
+          "summary": "={{ $('Prepare & Validate').item.json.event_summary }}",
+          "description": "={{ $('Prepare & Validate').item.json.event_description }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [320, 100],
+      "id": "wf2-10-create-event",
+      "name": "Create Calendar Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1erOCc-zeDBkT3yQGwgnzIUJjsLUH_vkVNV65oDUDMbY", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Appointments", "mode": "list", "cachedResultName": "Appointments" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Appointment ID": "={{ $('Prepare & Validate').item.json.appointment_id }}",
+            "Patient Name": "={{ $('Prepare & Validate').item.json.patient_name }}",
+            "Phone Last 4": "={{ '***' + $('Prepare & Validate').item.json.phone_last4 }}",
+            "Doctor": "={{ $('Prepare & Validate').item.json.doctor_name }}",
+            "Specialty": "={{ $('Prepare & Validate').item.json.specialty }}",
+            "Date": "={{ $('Prepare & Validate').item.json.datetime_start.split('T')[0] }}",
+            "Time": "={{ $('Prepare & Validate').item.json.datetime_start.split('T')[1].substring(0, 5) }}",
+            "Duration": "45",
+            "Service Notes": "={{ $('Prepare & Validate').item.json.notes }}",
+            "Status": "confirmed",
+            "Created At": "={{ $now.toISO() }}"
+          }
+        },
+        "options": { "valueInputMode": "USER_ENTERED" }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [540, 100],
+      "id": "wf2-11-log-sheet",
+      "name": "Log to Appointments Sheet",
+      "credentials": {
+        "googleSheetsServiceAccountApi": {
+          "id": "RECONNECT_SHEETS",
+          "name": "Google Sheets - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.ambitnhouse.com/webhook/masoumi-send-confirmation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-webhook-token", "value": "msc_live_K9pXmQvT3nR7sLbZ" }]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"type\": \"booking\",\n  \"language\": \"es\",\n  \"patient_name\": {{ JSON.stringify($('Prepare & Validate').item.json.patient_name) }},\n  \"patient_phone\": {{ JSON.stringify($('Prepare & Validate').item.json.patient_phone) }},\n  \"doctor_name\": {{ JSON.stringify($('Prepare & Validate').item.json.doctor_name) }},\n  \"specialty\": {{ JSON.stringify($('Prepare & Validate').item.json.specialty) }},\n  \"date\": {{ JSON.stringify($('Prepare & Validate').item.json.datetime_start.split('T')[0]) }},\n  \"time\": {{ JSON.stringify($('Prepare & Validate').item.json.datetime_start.split('T')[1].substring(0, 5)) }},\n  \"appointment_id\": {{ JSON.stringify($('Prepare & Validate').item.json.appointment_id) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 100],
+      "id": "wf2-12-send-confirm",
+      "name": "Trigger Confirmation SMS",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Appointment booked successfully\",\n  \"appointment_id\": {{ JSON.stringify($('Prepare & Validate').item.json.appointment_id) }},\n  \"doctor\": {{ JSON.stringify($('Prepare & Validate').item.json.doctor_name) }},\n  \"specialty\": {{ JSON.stringify($('Prepare & Validate').item.json.specialty) }},\n  \"datetime\": {{ JSON.stringify($('Prepare & Validate').item.json.datetime_start) }},\n  \"duration_minutes\": 45\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [980, 100],
+      "id": "wf2-13-respond-success",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Prepare & Validate", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare & Validate": { "main": [[{ "node": "Valid Input?", "type": "main", "index": 0 }]] },
+    "Valid Input?": {
+      "main": [
+        [{ "node": "Respond Invalid", "type": "main", "index": 0 }],
+        [{ "node": "Double-Check Slot", "type": "main", "index": 0 }]
+      ]
+    },
+    "Double-Check Slot": { "main": [[{ "node": "Slot Still Free?", "type": "main", "index": 0 }]] },
+    "Slot Still Free?": {
+      "main": [
+        [{ "node": "Create Calendar Event", "type": "main", "index": 0 }],
+        [{ "node": "Respond Slot Taken", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Calendar Event": { "main": [[{ "node": "Log to Appointments Sheet", "type": "main", "index": 0 }]] },
+    "Log to Appointments Sheet": { "main": [[{ "node": "Trigger Confirmation SMS", "type": "main", "index": 0 }]] },
+    "Trigger Confirmation SMS": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

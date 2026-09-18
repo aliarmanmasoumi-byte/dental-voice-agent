@@ -1,0 +1,211 @@
+[
+ {
+  "model": "gpt-4.1",
+  "pass": 14,
+  "total": 15,
+  "fail": 1,
+  "err": 0,
+  "msgs": 90,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.1",
+  "pass": 13,
+  "total": 15,
+  "fail": 2,
+  "err": 0,
+  "msgs": 91,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-4.1-mini",
+  "pass": 13,
+  "total": 15,
+  "fail": 1,
+  "err": 1,
+  "msgs": 102,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "claude-4.5-haiku",
+  "pass": 13,
+  "total": 15,
+  "fail": 2,
+  "err": 0,
+  "msgs": 90,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5",
+  "pass": 12,
+  "total": 15,
+  "fail": 3,
+  "err": 0,
+  "msgs": 98,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "claude-4.5-sonnet",
+  "pass": 12,
+  "total": 15,
+  "fail": 3,
+  "err": 0,
+  "msgs": 91,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gemini-3.5-flash",
+  "pass": 12,
+  "total": 15,
+  "fail": 3,
+  "err": 0,
+  "msgs": 94,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gemini-3.5-flash-lite",
+  "pass": 12,
+  "total": 15,
+  "fail": 3,
+  "err": 0,
+  "msgs": 80,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.6-luna",
+  "pass": 12,
+  "total": 15,
+  "fail": 2,
+  "err": 1,
+  "msgs": 99,
+  "glued": 1,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.5",
+  "pass": 11,
+  "total": 15,
+  "fail": 4,
+  "err": 0,
+  "msgs": 98,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.6-terra",
+  "pass": 11,
+  "total": 15,
+  "fail": 2,
+  "err": 2,
+  "msgs": 95,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "claude-4.6-sonnet",
+  "pass": 11,
+  "total": 15,
+  "fail": 4,
+  "err": 0,
+  "msgs": 100,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "claude-5-sonnet",
+  "pass": 11,
+  "total": 15,
+  "fail": 3,
+  "err": 1,
+  "msgs": 118,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5-mini",
+  "pass": 10,
+  "total": 15,
+  "fail": 4,
+  "err": 1,
+  "msgs": 116,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gemini-3.0-flash",
+  "pass": 10,
+  "total": 15,
+  "fail": 4,
+  "err": 1,
+  "msgs": 94,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gemini-3.6-flash",
+  "pass": 10,
+  "total": 15,
+  "fail": 5,
+  "err": 0,
+  "msgs": 100,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.2",
+  "pass": 9,
+  "total": 15,
+  "fail": 6,
+  "err": 0,
+  "msgs": 95,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.4",
+  "pass": 6,
+  "total": 15,
+  "fail": 8,
+  "err": 1,
+  "msgs": 96,
+  "glued": 0,
+  "leaks": 0,
+  "mixed": 0
+ },
+ {
+  "model": "gpt-5.4-mini",
+  "pass": 6,
+  "total": 15,
+  "fail": 9,
+  "err": 0,
+  "msgs": 91,
+  "glued": 4,
+  "leaks": 0,
+  "mixed": 2
+ }
+]

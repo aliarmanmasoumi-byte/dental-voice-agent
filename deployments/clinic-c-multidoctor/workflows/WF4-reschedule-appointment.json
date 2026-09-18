@@ -1,0 +1,343 @@
+{
+  "name": "WF4 - Reschedule Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-reschedule-appointment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1000, 300],
+      "id": "wf4-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-reschedule-appointment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf4-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-780, 300],
+      "id": "wf4-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-780, 500],
+      "id": "wf4-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const DOCTORS = {\n  'dr-masoud': { name: 'Dr. Masoud', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-paria':  { name: 'Dr. Paria',  calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-parvin': { name: 'Dr. Parvin', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-ali':    { name: 'Dr. Ali',    calendarId: '<GOOGLE_CALENDAR_ID>' }\n};\n\nconst body = $input.first().json.body;\nconst doctorId = (body.doctor_id || '').toLowerCase().trim();\nconst doctor = DOCTORS[doctorId];\n\nif (!doctor) return [{ json: { error: 'DOCTOR_NOT_FOUND' } }];\nif (!body.new_datetime) return [{ json: { error: 'MISSING_NEW_DATETIME' } }];\nif (!body.appointment_datetime && !body.appointment_id && !body.patient_name) {\n  return [{ json: { error: 'MISSING_ORIGINAL_APPOINTMENT' } }];\n}\n\nlet oldDtStr = body.appointment_datetime || null;\nif (!oldDtStr && body.appointment_id) {\n  const match = body.appointment_id.match(/CLN-(\\d{4})(\\d{2})(\\d{2})-/);\n  if (match) oldDtStr = `${match[1]}-${match[2]}-${match[3]}T00:00:00+02:00`;\n}\nif (!oldDtStr) return [{ json: { error: 'CANNOT_DETERMINE_ORIGINAL_DATE' } }];\n\nif (!oldDtStr.includes('+') && !oldDtStr.includes('Z')) oldDtStr += '+02:00';\n\nlet newDtStr = body.new_datetime;\nif (!newDtStr.includes('+') && !newDtStr.includes('Z')) newDtStr += '+02:00';\n\nconst newStart = new Date(newDtStr);\nconst newEnd = new Date(newStart.getTime() + 45 * 60 * 1000);\n\nconst oldDate = new Date(oldDtStr);\nconst dayStart = new Date(oldDate);\ndayStart.setUTCHours(0, 0, 0, 0);\nconst dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);\n\n// Generate new appointment ID\nconst pad = n => String(n).padStart(2, '0');\nconst dateStr = `${newStart.getUTCFullYear()}${pad(newStart.getUTCMonth()+1)}${pad(newStart.getUTCDate())}`;\nconst rand = Math.random().toString(36).substring(2, 6).toUpperCase();\nconst newApptId = `CLN-${dateStr}-${rand}`;\n\nreturn [{ json: {\n  doctor_id: doctorId,\n  doctor_name: doctor.name,\n  calendar_id: doctor.calendarId,\n  appointment_id: body.appointment_id || null,\n  patient_name: body.patient_name || null,\n  patient_phone: String(body.patient_phone || ''),\n  search_start: dayStart.toISOString(),\n  search_end: dayEnd.toISOString(),\n  new_datetime_start: newDtStr,\n  new_datetime_end: newEnd.toISOString(),\n  new_appointment_id: newApptId,\n  check_start: newDtStr,\n  check_end: newEnd.toISOString()\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 300],
+      "id": "wf4-04-prepare",
+      "name": "Prepare Search"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf4-err-cond",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-340, 300],
+      "id": "wf4-05-valid",
+      "name": "Valid Input?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":{{ JSON.stringify($json.error) }}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-340, 500],
+      "id": "wf4-06-respond-invalid",
+      "name": "Respond Invalid"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.search_start }}",
+        "timeMax": "={{ $json.search_end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [-120, 200],
+      "id": "wf4-07-get-old",
+      "name": "Get Old Day Events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Prepare Search').first().json;\nconst events = $input.all();\n\nconst apptId = prep.appointment_id;\nconst patientName = prep.patient_name;\n\nconst match = events.find(e => {\n  const summary = e.json.summary || '';\n  if (apptId && summary.includes(apptId)) return true;\n  if (patientName) {\n    const parts = patientName.toLowerCase().split(' ');\n    if (parts.every(p => summary.toLowerCase().includes(p))) return true;\n  }\n  return false;\n});\n\nif (!match) return [{ json: { found: false } }];\n\nreturn [{ json: {\n  found: true,\n  old_event_id: match.json.id,\n  old_summary: match.json.summary,\n  old_start: match.json.start?.dateTime || match.json.start?.date,\n  calendar_id: prep.calendar_id,\n  doctor_name: prep.doctor_name,\n  patient_name: prep.patient_name,\n  patient_phone: prep.patient_phone,\n  old_appointment_id: apptId || match.json.summary?.match(/\\[([^\\]]+)\\]/)?.[1] || 'unknown',\n  new_datetime_start: prep.new_datetime_start,\n  new_datetime_end: prep.new_datetime_end,\n  new_appointment_id: prep.new_appointment_id,\n  check_start: prep.check_start,\n  check_end: prep.check_end\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 200],
+      "id": "wf4-08-find-old",
+      "name": "Find Old Event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf4-found-cond",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [320, 200],
+      "id": "wf4-09-found",
+      "name": "Old Event Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"OLD_APPOINTMENT_NOT_FOUND\",\"detail\":\"I couldn't find that appointment. Please double-check the date and name.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [320, 400],
+      "id": "wf4-10-not-found",
+      "name": "Respond Not Found"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.check_start }}",
+        "timeMax": "={{ $json.check_end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [540, 100],
+      "id": "wf4-11-check-new",
+      "name": "Check New Slot",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf4-newslot-cond",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [760, 100],
+      "id": "wf4-12-new-free",
+      "name": "New Slot Free?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"NEW_SLOT_TAKEN\",\"detail\":\"The requested new time is already booked. Please choose a different time.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [760, 300],
+      "id": "wf4-13-new-taken",
+      "name": "Respond New Slot Taken"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Find Old Event').item.json.calendar_id }}",
+          "mode": "id"
+        },
+        "eventId": "={{ $('Find Old Event').item.json.old_event_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [980, 0],
+      "id": "wf4-14-delete-old",
+      "name": "Delete Old Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Find Old Event').item.json.calendar_id }}",
+          "mode": "id"
+        },
+        "start": "={{ $('Find Old Event').item.json.new_datetime_start }}",
+        "end": "={{ $('Find Old Event').item.json.new_datetime_end }}",
+        "additionalFields": {
+          "summary": "=[{{ $('Find Old Event').item.json.new_appointment_id }}] {{ $('Find Old Event').item.json.patient_name || 'Patient' }}",
+          "description": "=APPOINTMENT_ID: {{ $('Find Old Event').item.json.new_appointment_id }}\nRECONFIRMED_FROM: {{ $('Find Old Event').item.json.old_appointment_id }}\nPHONE_LAST4: {{ String($('Find Old Event').item.json.patient_phone).slice(-4) }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [1200, 0],
+      "id": "wf4-15-create-new",
+      "name": "Create New Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.ambitnhouse.com/webhook/masoumi-send-confirmation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-webhook-token", "value": "msc_live_K9pXmQvT3nR7sLbZ" }]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"type\": \"reschedule\",\n  \"language\": \"es\",\n  \"patient_name\": {{ JSON.stringify($('Find Old Event').item.json.patient_name || 'Paciente') }},\n  \"patient_phone\": {{ JSON.stringify($('Find Old Event').item.json.patient_phone) }},\n  \"doctor_name\": {{ JSON.stringify($('Find Old Event').item.json.doctor_name) }},\n  \"date\": {{ JSON.stringify($('Find Old Event').item.json.new_datetime_start.split('T')[0]) }},\n  \"time\": {{ JSON.stringify($('Find Old Event').item.json.new_datetime_start.split('T')[1].substring(0,5)) }},\n  \"appointment_id\": {{ JSON.stringify($('Find Old Event').item.json.new_appointment_id) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, 0],
+      "id": "wf4-16-send-sms",
+      "name": "Trigger Reschedule SMS",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Appointment rescheduled successfully\",\n  \"new_appointment_id\": {{ JSON.stringify($('Find Old Event').item.json.new_appointment_id) }},\n  \"new_datetime\": {{ JSON.stringify($('Find Old Event').item.json.new_datetime_start) }},\n  \"doctor\": {{ JSON.stringify($('Find Old Event').item.json.doctor_name) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1640, 0],
+      "id": "wf4-17-respond-ok",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Prepare Search", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Search": { "main": [[{ "node": "Valid Input?", "type": "main", "index": 0 }]] },
+    "Valid Input?": {
+      "main": [
+        [{ "node": "Respond Invalid", "type": "main", "index": 0 }],
+        [{ "node": "Get Old Day Events", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Old Day Events": { "main": [[{ "node": "Find Old Event", "type": "main", "index": 0 }]] },
+    "Find Old Event": { "main": [[{ "node": "Old Event Found?", "type": "main", "index": 0 }]] },
+    "Old Event Found?": {
+      "main": [
+        [{ "node": "Check New Slot", "type": "main", "index": 0 }],
+        [{ "node": "Respond Not Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check New Slot": { "main": [[{ "node": "New Slot Free?", "type": "main", "index": 0 }]] },
+    "New Slot Free?": {
+      "main": [
+        [{ "node": "Delete Old Event", "type": "main", "index": 0 }],
+        [{ "node": "Respond New Slot Taken", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete Old Event": { "main": [[{ "node": "Create New Event", "type": "main", "index": 0 }]] },
+    "Create New Event": { "main": [[{ "node": "Trigger Reschedule SMS", "type": "main", "index": 0 }]] },
+    "Trigger Reschedule SMS": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

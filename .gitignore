@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# what a deployment wrote down about itself — ids and an account tail
+deployed.json
+
+# raw output of a test round: full transcripts, per-case reports, run state
+test/sim/report_*.json
+test/sim/ids*.json
+test/sim/*.log
+test/sim/*_transcripts.json
+test/sim/resume_cases*.jsonl
+
+.DS_Store
+Thumbs.db

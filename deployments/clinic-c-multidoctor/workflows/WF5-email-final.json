@@ -1,0 +1,163 @@
+{
+  "name": "WF5 - Confirmation Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-send-confirmation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1104, 112],
+      "id": "b6c49712-3ae7-4a4d-9f20-6af8e0ceb6f3",
+      "name": "Webhook",
+      "webhookId": "masoumi-send-confirmation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [{ "id": "wf5-auth-cond", "leftValue": "={{ $json.headers['x-webhook-token'] }}", "rightValue": "msc_live_K9pXmQvT3nR7sLbZ", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-880, 112],
+      "id": "e050e7e6-4282-4ab0-a5db-1452eec10602",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-880, 304],
+      "id": "d47af729-dd70-4fc0-8d85-0800c5e127e4",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body;\nconst type = b.type || 'booking';\nconst lang = (b.language || 'es').toLowerCase();\nconst name = b.patient_name || 'Paciente';\nconst email = String(b.patient_email || '');\nconst doc = b.doctor_name || '';\nconst spec = b.specialty || '';\nconst date = b.date || '';\nconst time = b.time || '';\nconst id = b.appointment_id || '';\nconst cp = '+34 91 345 17 57';\nconst ca = 'Calle Doctor Esquerdo 16, Madrid';\nlet sub = '', html = '';\nif (lang === 'es') {\n  if (type === 'booking') {\n    sub = 'Cita confirmada - ' + id + ' | Clinica Masoumi';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"background:#1d4ed8;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Clinica Masoumi</h2><p style=\"margin:4px 0 0;opacity:.85\">Confirmacion de Cita</p></div><div style=\"padding:24px\"><p>Hola <b>' + name + '</b>, su cita ha sido confirmada exitosamente.</p><table style=\"width:100%;border-collapse:collapse;border:1px solid #e5e7eb\"><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Codigo</td><td style=\"padding:10px;font-weight:bold\">' + id + '</td></tr><tr><td style=\"padding:10px\">Doctor</td><td style=\"padding:10px\">' + doc + '</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Especialidad</td><td style=\"padding:10px\">' + spec + '</td></tr><tr><td style=\"padding:10px\">Fecha</td><td style=\"padding:10px\">' + date + '</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Hora</td><td style=\"padding:10px\">' + time + '</td></tr><tr><td style=\"padding:10px\">Duracion</td><td style=\"padding:10px\">45 minutos</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Direccion</td><td style=\"padding:10px\">' + ca + '</td></tr></table><p style=\"margin-top:16px\">Para cancelar o reagendar llame al <b>' + cp + '</b>.</p></div><div style=\"background:#f3f4f6;padding:12px;text-align:center;font-size:12px;color:#9ca3af\">Clinica Masoumi - ' + ca + '</div></div>';\n  } else if (type === 'cancel') {\n    sub = 'Cita cancelada | Clinica Masoumi';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px\"><div style=\"background:#dc2626;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Clinica Masoumi</h2></div><div style=\"padding:24px\"><p>Hola <b>' + name + '</b>, su cita con <b>' + doc + '</b> del <b>' + date + ' a las ' + time + '</b> ha sido cancelada correctamente.</p><p>Para nueva cita llame al <b>' + cp + '</b>.</p></div></div>';\n  } else {\n    sub = 'Cita reprogramada - ' + id + ' | Clinica Masoumi';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px\"><div style=\"background:#059669;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Clinica Masoumi</h2></div><div style=\"padding:24px\"><p>Hola <b>' + name + '</b>, su cita ha sido reprogramada para el <b>' + date + ' a las ' + time + '</b>. Codigo: <b>' + id + '</b>.</p><p>Para cambios llame al <b>' + cp + '</b>.</p></div></div>';\n  }\n} else {\n  if (type === 'booking') {\n    sub = 'Appointment Confirmed - ' + id + ' | Masoumi Clinic';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"background:#1d4ed8;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Masoumi Clinic</h2><p style=\"margin:4px 0 0;opacity:.85\">Appointment Confirmation</p></div><div style=\"padding:24px\"><p>Hello <b>' + name + '</b>, your appointment has been confirmed.</p><table style=\"width:100%;border-collapse:collapse;border:1px solid #e5e7eb\"><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Code</td><td style=\"padding:10px;font-weight:bold\">' + id + '</td></tr><tr><td style=\"padding:10px\">Doctor</td><td style=\"padding:10px\">' + doc + '</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Specialty</td><td style=\"padding:10px\">' + spec + '</td></tr><tr><td style=\"padding:10px\">Date</td><td style=\"padding:10px\">' + date + '</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Time</td><td style=\"padding:10px\">' + time + '</td></tr><tr><td style=\"padding:10px\">Duration</td><td style=\"padding:10px\">45 minutes</td></tr><tr style=\"background:#f9fafb\"><td style=\"padding:10px\">Address</td><td style=\"padding:10px\">' + ca + '</td></tr></table><p style=\"margin-top:16px\">To cancel or reschedule call <b>' + cp + '</b>.</p></div><div style=\"background:#f3f4f6;padding:12px;text-align:center;font-size:12px;color:#9ca3af\">Masoumi Clinic - ' + ca + '</div></div>';\n  } else if (type === 'cancel') {\n    sub = 'Appointment Cancelled | Masoumi Clinic';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px\"><div style=\"background:#dc2626;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Masoumi Clinic</h2></div><div style=\"padding:24px\"><p>Hello <b>' + name + '</b>, your appointment with <b>' + doc + '</b> on <b>' + date + ' at ' + time + '</b> has been cancelled.</p><p>To book a new appointment call <b>' + cp + '</b>.</p></div></div>';\n  } else {\n    sub = 'Appointment Rescheduled - ' + id + ' | Masoumi Clinic';\n    html = '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px\"><div style=\"background:#059669;color:#fff;padding:20px;text-align:center\"><h2 style=\"margin:0\">Masoumi Clinic</h2></div><div style=\"padding:24px\"><p>Hello <b>' + name + '</b>, your appointment has been rescheduled to <b>' + date + ' at ' + time + '</b>. Code: <b>' + id + '</b>.</p><p>For changes call <b>' + cp + '</b>.</p></div></div>';\n  }\n}\nreturn [{ json: { email_to: email, email_subject: sub, email_body: html, patient_name: name, type } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-656, 112],
+      "id": "b2199c20-4dd5-4c3c-abb3-07099b287bb5",
+      "name": "Build Email Content"
+    },
+    {
+      "parameters": {
+        "fromEmail": "apiarmanmasoumi@gmail.com",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "text": "={{ $json.email_body }}"
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [-448, 112],
+      "id": "1fb1da42-b138-4e12-aa34-45800d40ff12",
+      "name": "Send Email (Gmail)",
+      "credentials": {
+        "smtp": {
+          "id": "KjWXYQRc4QA0ICqA",
+          "name": "Gmail - Clinica Masoumi"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [{ "id": "wf5-email-fail-cond", "leftValue": "={{ $json.error }}", "rightValue": "", "operator": { "type": "string", "operation": "exists", "singleValue": true } }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-224, 112],
+      "id": "3557a699-422c-4456-b9f5-288dc3b26701",
+      "name": "Email Failed?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.ambitnhouse.com/webhook/masoumi-error-handler",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-webhook-token", "value": "msc_live_K9pXmQvT3nR7sLbZ" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "workflow", "value": "WF5 - Confirmation Sender" },
+            { "name": "error_type", "value": "Email Confirmation Error" },
+            { "name": "error_message", "value": "={{ $('Send Email (Gmail)').item.json.error || 'Email send failed' }}" },
+            { "name": "input_summary", "value": "={{ 'type=' + $('Build Email Content').item.json.type + ' email=' + String($('Build Email Content').item.json.email_to).substring(0,3) + '***' }}" },
+            { "name": "severity", "value": "warning" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0],
+      "id": "10ab2101-4c59-46bb-ad9c-8002b993e9c0",
+      "name": "Log Email Failure"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"success\",\"message\":\"Confirmation email sent successfully\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [0, 208],
+      "id": "642048d8-6088-4526-a31f-21419dbba8d1",
+      "name": "Respond OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"partial\",\"message\":\"Appointment processed but email confirmation failed. Error logged.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [208, 0],
+      "id": "2c15f5c8-3c89-4cf0-a46c-0e59cd3e4953",
+      "name": "Respond (Email failed)"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Build Email Content", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Email Content": { "main": [[{ "node": "Send Email (Gmail)", "type": "main", "index": 0 }]] },
+    "Send Email (Gmail)": { "main": [[{ "node": "Email Failed?", "type": "main", "index": 0 }]] },
+    "Email Failed?": {
+      "main": [
+        [{ "node": "Log Email Failure", "type": "main", "index": 0 }],
+        [{ "node": "Respond OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Email Failure": { "main": [[{ "node": "Respond (Email failed)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "pinData": null
+}

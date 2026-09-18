@@ -1,0 +1,170 @@
+{
+  "name": "WF7 - Error Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-error-handler",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-800, 300],
+      "id": "wf7-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-error-handler"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf7-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-580, 300],
+      "id": "wf7-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-580, 500],
+      "id": "wf7-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1erOCc-zeDBkT3yQGwgnzIUJjsLUH_vkVNV65oDUDMbY", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Errors", "mode": "list", "cachedResultName": "Errors" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.toISO() }}",
+            "Workflow": "={{ $json.body.workflow || 'unknown' }}",
+            "Error Type": "={{ $json.body.error_type || 'unknown' }}",
+            "Error Message": "={{ $json.body.error_message || '' }}",
+            "Input Summary": "={{ $json.body.input_summary || '' }}",
+            "Severity": "={{ $json.body.severity || 'warning' }}"
+          }
+        },
+        "options": { "valueInputMode": "USER_ENTERED" }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-360, 300],
+      "id": "wf7-04-log",
+      "name": "Log to Errors Sheet",
+      "continueOnFail": true,
+      "credentials": {
+        "googleSheetsServiceAccountApi": {
+          "id": "RECONNECT_SHEETS",
+          "name": "Google Sheets - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf7-severity-cond",
+              "leftValue": "={{ $('Webhook').item.json.body.severity }}",
+              "rightValue": "critical",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-140, 300],
+      "id": "wf7-05-severity",
+      "name": "Is Critical?"
+    },
+    {
+      "parameters": {
+        "sendTo": "<OWNER_EMAIL>",
+        "subject": "=[CRITICAL] Masoumi Clinic Error: {{ $('Webhook').item.json.body.error_type }}",
+        "emailType": "text",
+        "message": "=CRITICAL ERROR — Masoumi Clinic\n\nWorkflow: {{ $('Webhook').item.json.body.workflow }}\nError Type: {{ $('Webhook').item.json.body.error_type }}\nMessage: {{ $('Webhook').item.json.body.error_message }}\nInput: {{ $('Webhook').item.json.body.input_summary }}\nTime: {{ $now.toISO() }}\n\nCheck your n8n dashboard immediately."
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [80, 200],
+      "id": "wf7-06-email",
+      "name": "Alert Admin",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RECONNECT_GMAIL",
+          "name": "Gmail - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"I'm sorry, something went wrong. Please try again or say 'agent' to speak with a receptionist.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [300, 200],
+      "id": "wf7-07-respond-critical",
+      "name": "Respond (critical)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"I'm sorry, something went wrong. Please try again or say 'agent' to speak with a receptionist.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [300, 400],
+      "id": "wf7-08-respond-warning",
+      "name": "Respond (warning)"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Log to Errors Sheet", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log to Errors Sheet": { "main": [[{ "node": "Is Critical?", "type": "main", "index": 0 }]] },
+    "Is Critical?": {
+      "main": [
+        [{ "node": "Alert Admin", "type": "main", "index": 0 }],
+        [{ "node": "Respond (warning)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Alert Admin": { "main": [[{ "node": "Respond (critical)", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}

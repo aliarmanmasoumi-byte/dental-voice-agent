@@ -1,0 +1,401 @@
+[
+ {
+  "execution_message_description": "A short, warm goodbye of one sentence. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "speak_during_execution": true,
+  "name": "end_call",
+  "type": "end_call",
+  "speak_after_execution": true,
+  "description": "Hang up the call",
+  "execution_message_type": "prompt"
+ },
+ {
+  "name": "transfer_call",
+  "custom_sip_headers": {},
+  "ignore_e164_validation": false,
+  "transfer_option": {
+   "type": "cold_transfer",
+   "cold_transfer_mode": "sip_invite",
+   "show_transferee_as_caller": true
+  },
+  "speak_during_execution": true,
+  "speak_after_execution": true,
+  "type": "transfer_call",
+  "execution_message_type": "prompt",
+  "execution_message_description": "",
+  "transfer_destination": {
+   "type": "predefined",
+   "number": "<CLINIC_PHONE_ES>"
+  },
+  "description": "Transfer the call to a human agent"
+ },
+ {
+  "query_params": {},
+  "parameter_type": "json",
+  "method": "POST",
+  "response_variables": {},
+  "name": "time",
+  "url": "https://time.ambitnhouse.com/vapi",
+  "speak_during_execution": true,
+  "speak_after_execution": true,
+  "headers": {},
+  "execution_message_type": "prompt",
+  "description": "Get the current date and time in Madrid. Call it at the start of any date-related request (tomorrow, next Monday, etc.) to resolve exact dates.",
+  "timeout_ms": 120000,
+  "execution_message_description": "An extremely short first-person filler, three or four words at most, asking the caller to hold on. Keep it MINIMAL: another check often follows immediately, so anything longer means the caller hears two fillers back to back. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "args_at_root": false,
+  "type": "custom"
+ },
+ {
+  "type": "custom",
+  "method": "POST",
+  "enable_typing_sound": true,
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "execution_message_type": "prompt",
+  "query_params": {},
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "timeout_ms": 120000,
+  "name": "canceling",
+  "response_variables": {},
+  "speak_during_execution": true,
+  "description": "Cancel an existing appointment.",
+  "parameters": {
+   "type": "object",
+   "required": [
+    "name",
+    "action",
+    "time1"
+   ],
+   "properties": {
+    "appointment_id": {
+     "description": "The 4-digit appointment code given to the patient when they booked. Optional: include it only if the patient provides it. It identifies the exact appointment even among same-name bookings on the same day.",
+     "type": "string"
+    },
+    "time1": {
+     "description": "Original booking time of the appointment to cancel, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone.",
+     "type": "string"
+    },
+    "name": {
+     "type": "string",
+     "description": "The caller's first and last name exactly as they gave it in THIS call. It must look like a name: two or three words, no verbs, no question marks. A greeting or a whole sentence is not a name — if that is all you have, ask for the name and wait. Never invent, guess or use a placeholder."
+    },
+    "action": {
+     "description": "always is \"canceling\"",
+     "type": "string"
+    }
+   }
+  },
+  "execution_message_description": "A single short first-person line telling the caller you are cancelling their appointment right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "args_at_root": false,
+  "speak_after_execution": true,
+  "parameter_type": "form"
+ },
+ {
+  "parameter_type": "form",
+  "enable_typing_sound": true,
+  "timeout_ms": 120000,
+  "execution_message_type": "prompt",
+  "speak_during_execution": true,
+  "type": "custom",
+  "response_variables": {},
+  "parameters": {
+   "type": "object",
+   "required": [
+    "action",
+    "required_time"
+   ],
+   "properties": {
+    "action": {
+     "description": "always is \"suggesting\"",
+     "type": "string"
+    },
+    "required_time": {
+     "description": "The patient's requested time, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone.",
+     "type": "string"
+    }
+   }
+  },
+  "speak_after_execution": true,
+  "description": "Find free slots near a specific requested date/time. Use when the patient wants options around a particular day.",
+  "method": "POST",
+  "execution_message_description": "A single short first-person line telling the caller you are looking at what is free around the day they asked about. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "name": "suggesting",
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "args_at_root": false,
+  "query_params": {}
+ },
+ {
+  "method": "POST",
+  "speak_during_execution": true,
+  "response_variables": {},
+  "description": "Use ONLY for rescheduling existing appointments. Does NOT require and should NOT request email or phone number. Only needs: name, action, reschedule_time1, booking_time1, plus appointment_id if the patient has their code.",
+  "type": "custom",
+  "args_at_root": false,
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "query_params": {},
+  "parameter_type": "form",
+  "speak_after_execution": true,
+  "name": "reschedule",
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "execution_message_description": "A single short first-person line telling the caller you are moving their appointment right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "enable_typing_sound": true,
+  "parameters": {
+   "required": [
+    "name",
+    "action",
+    "reschedule_time1",
+    "booking_time1"
+   ],
+   "type": "object",
+   "properties": {
+    "reschedule_time1": {
+     "description": "New desired booking time when rescheduling, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone.",
+     "type": "string"
+    },
+    "action": {
+     "description": "always is \"reschedule\"",
+     "type": "string"
+    },
+    "name": {
+     "description": "The caller's first and last name exactly as they gave it in THIS call. It must look like a name: two or three words, no verbs, no question marks. A greeting or a whole sentence is not a name — if that is all you have, ask for the name and wait. Never invent, guess or use a placeholder.",
+     "type": "string"
+    },
+    "appointment_id": {
+     "type": "string",
+     "description": "The 4-digit appointment code given to the patient when they booked. Optional: include it only if the patient provides it. It identifies the exact appointment even among same-name bookings on the same day."
+    },
+    "booking_time1": {
+     "description": "Original booking time of the existing appointment, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone.",
+     "type": "string"
+    }
+   }
+  },
+  "execution_message_type": "prompt",
+  "timeout_ms": 120000
+ },
+ {
+  "execution_message_type": "prompt",
+  "speak_during_execution": true,
+  "description": "Find the nearest free slots starting from now. Use when the patient wants the earliest available appointment.",
+  "query_params": {},
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "name": "suggesting2",
+  "parameter_type": "form",
+  "type": "custom",
+  "timeout_ms": 120000,
+  "method": "POST",
+  "parameters": {
+   "type": "object",
+   "properties": {
+    "action": {
+     "description": "always is \"suggesting2\"",
+     "type": "string"
+    },
+    "local_time": {
+     "type": "string",
+     "description": "Current local time (from the time tool), plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone."
+    }
+   },
+   "required": [
+    "action",
+    "local_time"
+   ]
+  },
+  "execution_message_description": "A single short first-person line telling the caller you are looking for the clinic earliest opening. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "enable_typing_sound": true,
+  "speak_after_execution": true,
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "args_at_root": false,
+  "response_variables": {}
+ },
+ {
+  "timeout_ms": 120000,
+  "execution_message_description": "A single short first-person line telling the caller you are booking the appointment right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "name": "appointment",
+  "speak_during_execution": true,
+  "query_params": {},
+  "execution_message_type": "prompt",
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "method": "POST",
+  "enable_typing_sound": true,
+  "parameters": {
+   "required": [
+    "name",
+    "phone",
+    "service",
+    "action",
+    "booking_time"
+   ],
+   "properties": {
+    "booking_time": {
+     "type": "string",
+     "description": "Desired booking time, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone."
+    },
+    "phone": {
+     "type": "string",
+     "description": "The caller nine-digit phone number, exactly as they gave it in THIS call. This is where the WhatsApp confirmation is sent, so a single wrong digit sends it to a stranger. If they typed it on the keypad you may use it as typed. If they SPOKE the digits instead, you must first have said the whole number back to them one digit at a time and had them confirm it - if you have not done that yet, do NOT call this tool: read the number back first, get the yes, then call it. Never invent or guess a number."
+    },
+    "action": {
+     "description": "always is \"book\"",
+     "type": "string"
+    },
+    "service": {
+     "description": "The specific dental treatment the caller named out loud in THIS call, in their own words. It must be an actual treatment. A word that merely means a booking, a visit, or that nothing was specified is NOT a treatment and must never be sent here. If the caller has not told you what the appointment is for, do NOT call this tool at all - ask them first, wait for the answer, and call it afterwards.",
+     "type": "string"
+    },
+    "name": {
+     "description": "The caller's first and last name exactly as they gave it in THIS call. It must look like a name: two or three words, no verbs, no question marks. A greeting or a whole sentence is not a name — if that is all you have, ask for the name and wait. Never invent, guess or use a placeholder.",
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "type": "custom",
+  "parameter_type": "form",
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "description": "Book a new appointment. Always fill end_time exactly 30 minutes after booking_time. PRECONDITION: call this ONLY when name, Email, phone, service AND booking_time were ALL actually given by the caller earlier in THIS conversation. If even one is missing, do NOT call this tool - ask the caller for it and wait for their reply. Never invent, guess or auto-fill any field, not even to satisfy a required parameter.",
+  "response_variables": {},
+  "speak_after_execution": true,
+  "args_at_root": false
+ },
+ {
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "execution_message_type": "prompt",
+  "response_variables": {},
+  "timeout_ms": 120000,
+  "execution_message_description": "A single short first-person line telling the caller you are checking that time right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "parameters": {
+   "required": [
+    "required_time",
+    "action"
+   ],
+   "properties": {
+    "required_time": {
+     "description": "The time the patient wants checked for availability, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone.",
+     "type": "string"
+    },
+    "action": {
+     "type": "string",
+     "description": "alwayse is \"availability\""
+    }
+   },
+   "type": "object"
+  },
+  "query_params": {},
+  "description": "Check if ONE specific slot is free. Use when the patient asks about an exact date/time (e.g. 'Is Monday at 10 free?').",
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "name": "availability",
+  "speak_during_execution": true,
+  "enable_typing_sound": true,
+  "speak_after_execution": true,
+  "parameter_type": "form",
+  "type": "custom",
+  "method": "POST",
+  "args_at_root": false
+ },
+ {
+  "enable_typing_sound": true,
+  "execution_message_type": "prompt",
+  "args_at_root": false,
+  "speak_after_execution": true,
+  "name": "waitlist_add",
+  "parameter_type": "form",
+  "query_params": {},
+  "execution_message_description": "A single short first-person line telling the caller you are adding them to the waiting list right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "description": "Add the patient to the waiting list for their preferred time. Use ONLY right after a successful booking of an alternative time in this call, when the preferred time was taken and the patient said YES to the waitlist offer. PRECONDITION: name, Email and phone must be the exact values already collected from the caller in this call. Never invent, guess or auto-fill any field, not even to satisfy a required parameter.",
+  "method": "POST",
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "speak_during_execution": true,
+  "response_variables": {},
+  "type": "custom",
+  "timeout_ms": 120000,
+  "parameters": {
+   "properties": {
+    "desired_time": {
+     "type": "string",
+     "description": "The patient's PREFERRED time that was NOT available, plain Madrid local time, format YYYY-MM-DDTHH:mm:ss. Do NOT add any UTC offset (+01:00/+02:00/Z) - the backend handles the timezone."
+    },
+    "phone": {
+     "description": "The caller nine-digit phone number, exactly as they gave it in THIS call. This is where the WhatsApp confirmation is sent, so a single wrong digit sends it to a stranger. If they typed it on the keypad you may use it as typed. If they SPOKE the digits instead, you must first have said the whole number back to them one digit at a time and had them confirm it - if you have not done that yet, do NOT call this tool: read the number back first, get the yes, then call it. Never invent or guess a number.",
+     "type": "string"
+    },
+    "appointment_code": {
+     "description": "The 4-digit appointment code of the booking the patient just made in this call.",
+     "type": "string"
+    },
+    "action": {
+     "description": "always is \"waitlist_add\"",
+     "type": "string"
+    },
+    "name": {
+     "type": "string",
+     "description": "The caller's first and last name exactly as they gave it in THIS call. It must look like a name: two or three words, no verbs, no question marks. A greeting or a whole sentence is not a name — if that is all you have, ask for the name and wait. Never invent, guess or use a placeholder."
+    }
+   },
+   "required": [
+    "action",
+    "name",
+    "phone",
+    "desired_time",
+    "appointment_code"
+   ],
+   "type": "object"
+  }
+ },
+ {
+  "args_at_root": false,
+  "type": "custom",
+  "query_params": {},
+  "method": "POST",
+  "url": "https://n8n.ambitnhouse.com/webhook/24458e6e-6701-4487-a9a0-740087c0e779",
+  "description": "Look up the caller's UPCOMING appointments by name, over the next 90 days. Use whenever they ask when their appointment is, or want to check that they have one. Needs ONLY the name - never ask for a date, a code or a phone number for this.",
+  "enable_typing_sound": true,
+  "speak_during_execution": true,
+  "response_variables": {},
+  "execution_message_description": "A single short first-person line telling the caller you are looking up their appointment right now. Compose the wording yourself in the EXACT language the caller has been using in this conversation (English if they speak English, Spanish if they speak Spanish) and never switch language. Never speak in the third person, never mention tools, calendars or systems, and never reuse the same wording twice in one call.",
+  "parameter_type": "form",
+  "timeout_ms": 120000,
+  "name": "consulting",
+  "speak_after_execution": true,
+  "headers": {
+   "x-webhook-token": "<WEBHOOK_TOKEN>"
+  },
+  "execution_message_type": "prompt",
+  "parameters": {
+   "type": "object",
+   "required": [
+    "action",
+    "name"
+   ],
+   "properties": {
+    "appointment_code": {
+     "type": "string",
+     "description": "The 4-digit appointment code, ONLY if the caller has already given it in this call. Leave it out otherwise. Never invent one."
+    },
+    "action": {
+     "type": "string",
+     "description": "always is \"consulting\""
+    },
+    "name": {
+     "type": "string",
+     "description": "The patient's own name, and it must LOOK like a name: a first name and a surname, two or three words, nothing else. A greeting, a question, a sentence, or anything with a verb or a question mark in it is NOT a name — if that is all you have, you have not been given a name yet, so ask for it and wait before calling this tool. It must also be the name of the person you are speaking to: never look up an appointment for a third party the caller is asking about on someone else's behalf."
+    }
+   }
+  }
+ }
+]

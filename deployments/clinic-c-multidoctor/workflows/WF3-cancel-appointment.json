@@ -1,0 +1,284 @@
+{
+  "name": "WF3 - Cancel Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "masoumi-cancel-appointment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1000, 300],
+      "id": "wf3-01-webhook",
+      "name": "Webhook",
+      "webhookId": "masoumi-cancel-appointment"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf3-auth-cond",
+              "leftValue": "={{ $json.headers['x-webhook-token'] }}",
+              "rightValue": "msc_live_K9pXmQvT3nR7sLbZ",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-780, 300],
+      "id": "wf3-02-auth",
+      "name": "Auth Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 401,
+        "responseBody": "{\"status\":\"error\",\"message\":\"Unauthorized\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-780, 500],
+      "id": "wf3-03-unauthorized",
+      "name": "Respond 401"
+    },
+    {
+      "parameters": {
+        "jsCode": "const DOCTORS = {\n  'dr-masoud': { name: 'Dr. Masoud', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-paria':  { name: 'Dr. Paria',  calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-parvin': { name: 'Dr. Parvin', calendarId: '<GOOGLE_CALENDAR_ID>' },\n  'dr-ali':    { name: 'Dr. Ali',    calendarId: '<GOOGLE_CALENDAR_ID>' }\n};\n\nconst body = $input.first().json.body;\nconst doctorId = (body.doctor_id || '').toLowerCase().trim();\nconst doctor = DOCTORS[doctorId];\n\nif (!doctor) {\n  return [{ json: { error: 'DOCTOR_NOT_FOUND' } }];\n}\n\nconst apptId = body.appointment_id || null;\nconst patientName = body.patient_name || null;\nlet apptDatetime = body.appointment_datetime || null;\n\n// If appointment_id given, extract date from it (CLN-YYYYMMDD-XXXX)\nif (apptId && !apptDatetime) {\n  const match = apptId.match(/CLN-(\\d{4})(\\d{2})(\\d{2})-/);\n  if (match) {\n    apptDatetime = `${match[1]}-${match[2]}-${match[3]}T00:00:00+02:00`;\n  }\n}\n\nif (!apptDatetime && !patientName) {\n  return [{ json: { error: 'MISSING_SEARCH_PARAMS' } }];\n}\n\nif (!apptDatetime.includes('+') && !apptDatetime.includes('Z')) {\n  apptDatetime += '+02:00';\n}\n\nconst searchDate = new Date(apptDatetime);\nconst dayStart = new Date(searchDate);\ndayStart.setUTCHours(0, 0, 0, 0);\nconst dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);\n\nreturn [{ json: {\n  doctor_id: doctorId,\n  doctor_name: doctor.name,\n  calendar_id: doctor.calendarId,\n  appointment_id: apptId,\n  patient_name: patientName,\n  patient_phone: String(body.patient_phone || ''),\n  search_start: dayStart.toISOString(),\n  search_end: dayEnd.toISOString()\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 300],
+      "id": "wf3-04-prepare",
+      "name": "Prepare Search"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf3-err-cond",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-340, 300],
+      "id": "wf3-05-valid",
+      "name": "Valid Input?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"error\",\"message\":{{ JSON.stringify($json.error) }}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-340, 500],
+      "id": "wf3-06-respond-invalid",
+      "name": "Respond Invalid"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ $json.search_start }}",
+        "timeMax": "={{ $json.search_end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [-120, 200],
+      "id": "wf3-07-get-events",
+      "name": "Get Day Events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const searchData = $('Prepare Search').first().json;\nconst events = $input.all();\n\nconst apptId = searchData.appointment_id;\nconst patientName = searchData.patient_name;\n\nconst match = events.find(e => {\n  const summary = e.json.summary || '';\n  if (apptId && summary.includes(apptId)) return true;\n  if (patientName) {\n    const nameLower = patientName.toLowerCase();\n    const summaryLower = summary.toLowerCase();\n    // Match if summary contains the patient name\n    if (nameLower.split(' ').every(part => summaryLower.includes(part))) return true;\n  }\n  return false;\n});\n\nif (!match) {\n  return [{ json: { found: false } }];\n}\n\nreturn [{ json: {\n  found: true,\n  event_id: match.json.id,\n  event_summary: match.json.summary,\n  event_start: match.json.start?.dateTime || match.json.start?.date,\n  calendar_id: searchData.calendar_id,\n  doctor_name: searchData.doctor_name,\n  patient_name: searchData.patient_name,\n  patient_phone: searchData.patient_phone,\n  appointment_id: apptId || match.json.summary?.match(/\\[([^\\]]+)\\]/)?.[1] || 'unknown'\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 200],
+      "id": "wf3-08-find-event",
+      "name": "Find Event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "wf3-found-cond",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [320, 200],
+      "id": "wf3-09-found",
+      "name": "Event Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"error\",\"message\":\"APPOINTMENT_NOT_FOUND\",\"detail\":\"I couldn't find that appointment. Please double-check the date and name.\"}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [320, 400],
+      "id": "wf3-10-not-found",
+      "name": "Respond Not Found"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.calendar_id }}",
+          "mode": "id"
+        },
+        "eventId": "={{ $json.event_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [540, 100],
+      "id": "wf3-11-delete",
+      "name": "Delete Event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "RECONNECT_CALENDAR",
+          "name": "Google Calendar - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1erOCc-zeDBkT3yQGwgnzIUJjsLUH_vkVNV65oDUDMbY", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Cancellations", "mode": "list", "cachedResultName": "Cancellations" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Appointment ID": "={{ $('Find Event').item.json.appointment_id }}",
+            "Patient Name": "={{ $('Find Event').item.json.patient_name || 'unknown' }}",
+            "Phone Last 4": "={{ '***' + String($('Find Event').item.json.patient_phone).slice(-4) }}",
+            "Doctor": "={{ $('Find Event').item.json.doctor_name }}",
+            "Original Date": "={{ $('Find Event').item.json.event_start ? $('Find Event').item.json.event_start.split('T')[0] : '' }}",
+            "Original Time": "={{ $('Find Event').item.json.event_start ? $('Find Event').item.json.event_start.split('T')[1].substring(0,5) : '' }}",
+            "Canceled At": "={{ $now.toISO() }}",
+            "Reason": ""
+          }
+        },
+        "options": { "valueInputMode": "USER_ENTERED" }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [760, 100],
+      "id": "wf3-12-log-cancel",
+      "name": "Log Cancellation",
+      "credentials": {
+        "googleSheetsServiceAccountApi": {
+          "id": "RECONNECT_SHEETS",
+          "name": "Google Sheets - Masoumi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.ambitnhouse.com/webhook/masoumi-send-confirmation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "x-webhook-token", "value": "msc_live_K9pXmQvT3nR7sLbZ" }]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"type\": \"cancel\",\n  \"language\": \"es\",\n  \"patient_name\": {{ JSON.stringify($('Find Event').item.json.patient_name || 'Paciente') }},\n  \"patient_phone\": {{ JSON.stringify($('Find Event').item.json.patient_phone) }},\n  \"doctor_name\": {{ JSON.stringify($('Find Event').item.json.doctor_name) }},\n  \"date\": {{ JSON.stringify($('Find Event').item.json.event_start ? $('Find Event').item.json.event_start.split('T')[0] : '') }},\n  \"time\": {{ JSON.stringify($('Find Event').item.json.event_start ? $('Find Event').item.json.event_start.split('T')[1].substring(0,5) : '') }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 100],
+      "id": "wf3-13-send-sms",
+      "name": "Trigger Cancel SMS",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"success\",\"message\":\"Appointment canceled successfully.\",\"appointment_id\":{{ JSON.stringify($('Find Event').item.json.appointment_id) }}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1200, 100],
+      "id": "wf3-14-respond-ok",
+      "name": "Respond Success"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Auth Check", "type": "main", "index": 0 }]] },
+    "Auth Check": {
+      "main": [
+        [{ "node": "Prepare Search", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Search": { "main": [[{ "node": "Valid Input?", "type": "main", "index": 0 }]] },
+    "Valid Input?": {
+      "main": [
+        [{ "node": "Respond Invalid", "type": "main", "index": 0 }],
+        [{ "node": "Get Day Events", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Day Events": { "main": [[{ "node": "Find Event", "type": "main", "index": 0 }]] },
+    "Find Event": { "main": [[{ "node": "Event Found?", "type": "main", "index": 0 }]] },
+    "Event Found?": {
+      "main": [
+        [{ "node": "Delete Event", "type": "main", "index": 0 }],
+        [{ "node": "Respond Not Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete Event": { "main": [[{ "node": "Log Cancellation", "type": "main", "index": 0 }]] },
+    "Log Cancellation": { "main": [[{ "node": "Trigger Cancel SMS", "type": "main", "index": 0 }]] },
+    "Trigger Cancel SMS": { "main": [[{ "node": "Respond Success", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}
