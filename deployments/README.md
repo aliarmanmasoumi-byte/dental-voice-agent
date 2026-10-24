@@ -1,7 +1,7 @@
 # Deployments
 
-The same system, as three different clinics. Everything client-identifying — names,
-addresses, phone numbers, domains — has been replaced with examples.
+The same system in three configurations. All are demo builds: names, addresses, phone numbers
+and domains are examples, and none of them runs in production with real patients.
 
 | | Languages | What is different about it |
 |---|---|---|

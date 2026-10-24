@@ -1,14 +1,15 @@
 # Dental voice agent
 
-**A production phone agent for dental clinics.** It answers the line, holds a conversation in
+**A phone agent for dental clinics, built and tested as a demo.** It answers the line, holds a conversation in
 the caller's language, checks the real calendar, books, reschedules and cancels — and it was
 taken from "sounds impressive in a demo" to a measured score by running six hundred graded
 conversations against it.
 
 `Retell` (voice runtime) · `n8n` (booking backend) · `Google Calendar` · `Twilio` SIP · `gpt-4.1`
 
-Three clinics run on it: a Spanish/English agent, a trilingual one that adds Mandarin, and a
-multi-doctor bilingual deployment. Client-identifying details are replaced with examples.
+It comes in three configurations: a Spanish/English agent, a trilingual one that adds Mandarin, and a
+multi-doctor bilingual version. All three are demo builds tested with simulated and test calls; the
+clinics named here are examples, and none of it runs in production with real patients.
 
 ---
 
@@ -72,7 +73,7 @@ workflow/             the booking backend
   validation-node.js           the guard every request passes through first
 deploy/               one command to stand the whole thing up in a fresh account
 test/sim/             the simulated-patient harness above
-deployments/          the same system as three different clinics
+deployments/          the same system in three configurations
 ```
 
 ---
